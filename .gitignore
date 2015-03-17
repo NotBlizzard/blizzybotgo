@@ -6,6 +6,7 @@
 # Folders
 _obj
 _test
+config.yaml
 
 # Architecture specific extensions/prefixes
 *.[568vq]
