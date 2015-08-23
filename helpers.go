@@ -8,9 +8,9 @@ func Keys(maps map[string]func(string) string) []string {
 	return keys
 }
 
-func Contains(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
+func Contains(needle string, haystack []string) bool {
+	for _, v := range haystack {
+		if v == needle {
 			return true
 		}
 	}

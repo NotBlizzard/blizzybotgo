@@ -33,7 +33,6 @@ func (s PSBot) Command(msg string) string {
 	} else {
 		cmd = msg[0:]
 	}
-	fmt.Println("COMMAND IS '" + cmd + "'")
 	if _, ok := Commands[cmd]; ok {
 		args := ""
 		if strings.Contains(msg, " ") {
@@ -44,8 +43,45 @@ func (s PSBot) Command(msg string) string {
 	return ""
 }
 
-func (s PSBot) Connect() {
+func (s PSBot) Login(key string, challenge string) {
 	base := "http://play.pokemonshowdown.com/action.php"
+
+	var response *http.Response
+	var err error
+	var data []byte
+	var data_str string
+
+	if s.Pass == "" {
+		response, err = http.Get(base + "?act=getassertion&userid=" + s.User + "&challengekeyid=" + key + "&challenge=" + challenge)
+		if err != nil {
+			log.Fatal(err)
+		}
+		data, _ = ioutil.ReadAll(response.Body)
+		data_str = string(data)
+	} else {
+		response, err = http.PostForm(base, url.Values{
+			"act":            {"login"},
+			"name":           {s.User},
+			"pass":           {s.Pass},
+			"challengekeyid": {key},
+			"challenge":      {challenge},
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		data, _ = ioutil.ReadAll(response.Body)
+
+		defer response.Body.Close()
+
+		data_str = strings.TrimPrefix(string(data), "]")
+		data_str = strings.Split(data_str, "\"assertion\":\"")[1]
+		data_str = strings.Split(data_str, "\"")[0]
+	}
+	s.Send("|/trn " + s.User + ",0," + string(data_str))
+
+}
+
+func (s PSBot) Connect() {
 	ws_url := "ws://" + s.Server + "/showdown/websocket"
 	ws_origin := "http://play.pokemonshowdown.com"
 	ws, err := websocket.Dial(ws_url, "", ws_origin)
@@ -71,39 +107,11 @@ func (s PSBot) Connect() {
 				}
 
 			case "challstr":
-				var response *http.Response
-				var err error
-				var data []byte
-				var data_str string
 
 				key := msg[2]
 				challenge := msg[3]
-				if s.Pass == "" {
-					response, err = http.Get(base + "?act=getassertion&userid=" + s.User + "&challengekeyid=" + key + "&challenge=" + challenge)
-					if err != nil {
-						log.Fatal(err)
-					}
-					data, _ = ioutil.ReadAll(response.Body)
-					data_str = string(data)
-				} else {
-					response, err = http.PostForm(base, url.Values{
-						"act":            {"login"},
-						"name":           {s.User},
-						"pass":           {s.Pass},
-						"challengekeyid": {key},
-						"challenge":      {challenge},
-					})
-					if err != nil {
-						log.Fatal(err)
-					}
-					data, _ = ioutil.ReadAll(response.Body)
-					data_str = strings.TrimPrefix(string(data), "]")
-					data_str = strings.Split(data_str, "\"assertion\":\"")[1]
-					data_str = strings.Split(data_str, "\"")[0]
-				}
 
-				defer response.Body.Close()
-				s.Send("|/trn " + s.User + ",0," + string(data_str))
+				s.Login(key, challenge)
 
 				for _, e := range s.Rooms {
 					s.Send("|/join " + e)
